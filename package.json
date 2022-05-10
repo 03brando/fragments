@@ -11,5 +11,8 @@
     "url": "git+https://github.com/03brando/fragments.git"
   },
   "author": "Brandon Kandola",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "prettier": "2.6.2"
+  }
 }
