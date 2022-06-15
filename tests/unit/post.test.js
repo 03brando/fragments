@@ -15,11 +15,10 @@ describe('POST /v1/fragments', () => {
   test('authenticated users post a fragment with a correct location', async () => {
     const res = await request(app)
       .post('/v1/fragments')
-      .send('POST test fragment')
-      .set('Content-type', 'text/plain')
-      .auth('user1@email.com', 'password1');
+      .auth('user1@email.com', 'password1')
+      .set('Content-Type', 'text/plain')
+      .send('Test test test');
     expect(res.statusCode).toBe(201);
-    expect(res.body.status).toBe('ok');
     expect(res.headers.location).toEqual(
       `${process.env.API_URL}/v1/fragments/${JSON.parse(res.text).fragment.id}`
     );
