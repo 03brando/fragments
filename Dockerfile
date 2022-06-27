@@ -29,8 +29,7 @@ RUN npm ci --only=production
 #Stage 1 build app for production
 FROM node:16.15.1-alpine3.14@sha256:c785e617c8d7015190c0d41af52cc69be8a16e3d9eb7cb21f0bb58bcfca14d6b as production
 
-RUN apk --no-cache add curl=7.83.1-r1
-RUN apk --no-cache add dumb-init=1.2.5-r1
+RUN apk --no-cache add curl=7.83.1-r1 && apk --no-cache add dumb-init=1.2.5-r1
 
 WORKDIR /app
 
