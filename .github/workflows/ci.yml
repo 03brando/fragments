@@ -78,7 +78,7 @@ jobs:
         # run: npm install-ci-test
         run: npm install-ci-test
 
-    docker-hub:
+  docker-hub:
     name: Build and Push to Docker Hub
     # Don't bother running this job unless the other three all pass
     needs: [lint, dockerfile-lint, unit-tests, integration-tests]
