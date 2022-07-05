@@ -108,3 +108,5 @@ dist
 
 coverage/
 .ssh/
+
+ccp.ppk
