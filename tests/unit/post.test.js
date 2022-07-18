@@ -23,13 +23,4 @@ describe('POST /v1/fragments', () => {
       `${process.env.API_URL}/v1/fragments/${JSON.parse(res.text).fragment.id}`
     );
   });
-
-  test('415 error if a fragment has an unsupported type', async () => {
-    const res = await request(app)
-      .post('/v1/fragments')
-      .send('POST test fragment')
-      .auth('user1@email.com', 'password1');
-
-    expect(res.statusCode).toBe(415);
-  });
 });
