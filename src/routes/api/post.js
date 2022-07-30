@@ -7,7 +7,7 @@ module.exports = async (req, res, next) => {
   const user = req.user;
   const type = req.headers['content-type'];
 
-  logger.debug({ user, type }, 'POST /fragments');
+  logger.debug({ user, type }, 'POST request:');
 
   try {
     if (!Fragment.isSupportedType(type)) {
@@ -19,12 +19,12 @@ module.exports = async (req, res, next) => {
     await fragment.save();
     await fragment.setData(data);
     const id = fragment.id;
-    logger.debug(id, 'Post /fragments');
+    logger.debug(id, 'POST fragment ID');
 
     const location = `${process.env.API_URL}/v1/fragments/${id}`;
 
     res.location(location);
-    logger.debug({ location }, 'Location');
+    logger.debug({ location }, 'POST location');
     res.status(201).json(createSuccessResponse({ fragment }));
   } catch (err) {
     next(err);

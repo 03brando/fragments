@@ -64,3 +64,17 @@ jobs:
           push: true
           # Use the git tag version and `latest`
           tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:${{ env.VERSION_TAG }}, ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:latest
+          # We need to create a new compose file to deploy to Elastic Beanstalk, and
+      # it needs to include our updated Docker image info (e.g., the tag we
+      # just pushed). We'll substitute environment variables to create a new
+      # file using the `envsubst` command, see:
+      # https://www.gnu.org/software/gettext/manual/html_node/envsubst-Invocation.html
+      - name: Create compose file with specific Docker image info
+        env:
+          # Define the variables we need to replace
+          DOCKER_REPO: ${{ steps.login-ecr.outputs.registry }}/fragments
+          DOCKER_TAG: ${{ github.ref_name }}
+          COMPOSE_FILE: deploy-${{ github.ref_name }}.yml
+        run: |
+          envsubst < docker-compose.yml > ${{ env.COMPOSE_FILE }}
+          echo "Created ${{ env.COMPOSE_FILE }}"
