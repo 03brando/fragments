@@ -6,6 +6,7 @@ const contentType = require('content-type');
 const logger = require('../logger');
 
 // Functions for working with fragment metadata/data using our DB
+
 const {
   readFragment,
   writeFragment,
@@ -14,6 +15,14 @@ const {
   listFragments,
   deleteFragment,
 } = require('./data');
+
+const fragmentTypes = [
+  'text/plain',
+  'text/plain; charset=utf-8',
+  'text/markdown',
+  'text/html',
+  'application/json',
+];
 
 class Fragment {
   constructor({ id, ownerId, created, updated, type, size = 0 }) {
@@ -65,6 +74,8 @@ class Fragment {
    * @returns Promise<Array<Fragment>>
    */
   static async byUser(ownerId, expand = false) {
+    logger.debug({ ownerId, expand }, 'byUser()');
+
     return listFragments(ownerId, expand);
   }
 
@@ -111,7 +122,7 @@ class Fragment {
    * Gets the fragment's data from the database
    * @returns Promise<Buffer>
    */
-  getData() {
+  async getData() {
     return readFragmentData(this.ownerId, this.id);
   }
 
@@ -121,12 +132,21 @@ class Fragment {
    * @returns Promise
    */
   async setData(data) {
-    if (data) {
+    try {
+      if (!data) {
+        throw Error('No data found');
+      }
+
+      if (!Buffer.isBuffer(data)) {
+        throw Error('No buffer found');
+      }
+
+      this.size = Buffer.byteLength(data);
       this.updated = new Date().toISOString();
-      this.size = data.toString().length;
-      return writeFragmentData(this.ownerId, this.id, data);
-    } else {
-      throw new Error();
+
+      return await writeFragmentData(this.ownerId, this.id, data);
+    } catch (err) {
+      throw new Error(err);
     }
   }
 
@@ -135,6 +155,7 @@ class Fragment {
    * "text/html; charset=utf-8" -> "text/html"
    * @returns {string} fragment's mime type (without encoding)
    */
+
   get mimeType() {
     const { type } = contentType.parse(this.type);
     return type;
@@ -153,9 +174,11 @@ class Fragment {
    * @returns {Array<string>} list of supported mime types
    */
   get formats() {
-    let result = [];
-    result.push(this.mimeType);
-    return result;
+    if (this.type === fragmentTypes[0] || fragmentTypes[1]) {
+      return ['text/plain'];
+    } else if (this.type === fragmentTypes[2]) {
+      return ['text/html'];
+    } else return [];
   }
 
   /**
@@ -164,7 +187,7 @@ class Fragment {
    * @returns {boolean} true if we support this Content-Type (i.e., type/subtype)
    */
   static isSupportedType(value) {
-    return value == 'text/plain' || value == 'text/plain; charset=utf-8';
+    return fragmentTypes.includes(value);
   }
 }
 

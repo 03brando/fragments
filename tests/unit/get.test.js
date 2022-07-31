@@ -1,7 +1,6 @@
 // tests/unit/get.test.js
 
 const request = require('supertest');
-
 const app = require('../../src/app');
 
 describe('GET /v1/fragments', () => {
@@ -19,8 +18,6 @@ describe('GET /v1/fragments', () => {
     expect(res.body.status).toBe('ok');
     expect(Array.isArray(res.body.fragments)).toBe(true);
   });
-
-  // TODO: we'll need to add tests to check the contents of the fragments array later
 });
 
 describe('GET /v1/fragments/:id', () => {
@@ -28,16 +25,14 @@ describe('GET /v1/fragments/:id', () => {
     const postRes = await request(app)
       .post('/v1/fragments')
       .auth('user1@email.com', 'password1')
-      .set('Content-Type', 'text/plain')
-      .send('Test123');
-    const id = JSON.parse(postRes.text).fragment.id;
+      .send({ body: 'Test123' });
+    const id = await postRes.body.fragment.id;
 
     const getRes = await request(app)
       .get(`/v1/fragments/${id}`)
       .auth('user1@email.com', 'password1');
-
     expect(getRes.statusCode).toBe(200);
-    expect(getRes.text).toEqual('Test123');
+    expect(getRes.text).toContain('Test123');
   });
 
   // If the request is missing the Authorization header, it should be forbidden
@@ -49,14 +44,16 @@ describe('GET /v1/fragments/:id/info', () => {
     const postRes = await request(app)
       .post('/v1/fragments')
       .auth('user1@email.com', 'password1')
-      .set('Content-Type', 'text/plain');
-    const id = JSON.parse(postRes.text).fragment.id;
+      .send({
+        body: 'Test123',
+      });
+    const id = await postRes.body.fragment.id;
 
-    const res = await request(app)
+    const getRes = await request(app)
       .get(`/v1/fragments/${id}/info`)
       .auth('user1@email.com', 'password1');
-    expect(res.statusCode).toBe(200);
-    expect(res.body.status).toBe('ok');
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.body.status).toBe('ok');
   });
 
   test('unauthenticated requests are denied', () => request(app).get('/v1/fragments').expect(401));

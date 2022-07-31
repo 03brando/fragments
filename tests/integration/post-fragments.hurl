@@ -37,7 +37,7 @@ Authorization: Basic dXNlcjFAZW1haWwuY29tOnBhc3N3b3JkMQ==
 HTTP/1.1 200
 
 # Check the content type
-Content-Type: text/html; charset=utf-8
+Content-Type: text/plain; charset=utf-8
 Content-Length: 19
 [Asserts]
 body == "This is a fragment!"

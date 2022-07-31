@@ -4,6 +4,7 @@
  * The main entry-point for the v1 version of the fragments API.
  */
 const express = require('express');
+
 const contentType = require('content-type');
 const { Fragment } = require('../../model/fragment');
 const { getFrag, getById, getInfo } = require('./get');
@@ -32,6 +33,6 @@ const rawBody = () =>
 // Use a raw body parser for POST, which will give a `Buffer` Object or `{}` at `req.body`
 router.post('/fragments', rawBody(), require('./post'));
 
-// Other routes will go here later on...
+router.delete('/fragments/:id', require('./delete'));
 
 module.exports = router;
