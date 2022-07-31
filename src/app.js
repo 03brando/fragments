@@ -57,12 +57,17 @@ app.use((req, res) => {
 // Add error-handling middleware to deal with anything else
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  // We may already have an error response we can use, but if not, use a generic
-  // 500 server error and message.
-  const status = err.status || 500;
+  let status;
   const message = err.message || 'unable to process request';
 
-  // If this is a server error, log something so we can see what's going on.
+  if (message == 'No matching fragment!') {
+    status = 404;
+  } else if (message == 'unsupported type!') {
+    status = 415;
+  } else {
+    status = err.status || 500;
+  }
+
   if (status > 499) {
     logger.error({ err }, `Error processing request`);
   }
