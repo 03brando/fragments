@@ -1,4 +1,3 @@
-# docker-compose.yml
 services:
   fragments:
     image: ${DOCKER_REPO}:${DOCKER_TAG}
@@ -12,8 +11,8 @@ services:
       # Allow the following variables to be forwarded into the container from the env if set
       - AWS_COGNITO_POOL_ID
       - AWS_COGNITO_CLIENT_ID
+      # We'll typically want to use Cognito, but we can pass this instead for testing
       - HTPASSWD
-      # We'll forward Elastic Beanstalk Environment's URL
-      - API_URL
       # The S3 Bucket to use, default to `fragments` if missing
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-fragments}
+      - API_URL

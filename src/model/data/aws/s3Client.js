@@ -24,6 +24,7 @@ const getCredentials = () => {
       sessionToken: process.env.AWS_SESSION_TOKEN,
     };
     logger.debug('Using extra S3 Credentials AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY');
+    console.log('/n/n/n/' + process.env.AWS_REGION + '/n/n/n/');
     return credentials;
   }
 };

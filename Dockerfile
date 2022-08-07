@@ -1,54 +1,53 @@
-# The docker file for fragments microservice
-#Stage 0: install base dependencies
-# Use node version 16 with apline
-FROM node:16.15.1-alpine3.14@sha256:c785e617c8d7015190c0d41af52cc69be8a16e3d9eb7cb21f0bb58bcfca14d6b as dependencies
+# This is the Dockerfile for fragments microservice
 
-LABEL maintainer="Brandon Kandola <bkandola@myseneca.com>"
+# Use node alpine version because it saves space
+FROM node:16.14-alpine3.14@sha256:98a87dfa76dde784bb4fe087518c839697ce1f0e4f55e6ad0b49f0bfd5fbe52c
+
+LABEL maintainer="Alastair Odhiambo <alastairodhiambo@outlook.com>"
 LABEL description="Fragments node.js microservice"
 
 # We default to use port 8080 in our service
 ENV PORT=8080
 
-# Reduce npm spam when installing within Docker
+# Reduce npm spam when installing within docker
 # https://docs.npmjs.com/cli/v8/using-npm/config#loglevel
 ENV NPM_CONFIG_LOGLEVEL=warn
+
 # Disable colour when run inside Docker
 # https://docs.npmjs.com/cli/v8/using-npm/config#color
 ENV NPM_CONFIG_COLOR=false
+
 # Use /app as our working directory
 WORKDIR /app
 
-# Copy the package.json and package-lock.json files into the working dir (/app)
-COPY package*.json ./
+COPY --chown=node:node . /app
+
+# Copy the package.json and package-lock.json files into /app
+COPY package*.json /app/
+
 
 # Install node dependencies defined in package-lock.json
-RUN npm ci --only=production
-
-################################################################
-
-#Stage 1 build app for production
-FROM node:16.15.1-alpine3.14@sha256:c785e617c8d7015190c0d41af52cc69be8a16e3d9eb7cb21f0bb58bcfca14d6b as production
-
-RUN apk --no-cache add curl=7.83.1-r2 && apk --no-cache add dumb-init=1.2.5-r1
-
-WORKDIR /app
-
-COPY --chown=node:node --from=dependencies /app /app/
+RUN npm ci -only=production \
+# Install tini
+&& apk add --no-cache tini=~0.19.0
 
 # Copy src to /app/src/
-COPY --chown=node:node ./src ./src
+COPY ./src ./src
 
 # Copy our HTPASSWD file
-COPY --chown=node:node ./tests/.htpasswd ./tests/.htpasswd
+COPY ./tests/.htpasswd ./tests/.htpasswd
 
+# Make the entrypoint tini
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Change the user before we run the app
 USER node
 
-
 # Start the container by running our server
-CMD ["dumb-init", "node", "src/index.js"]
+CMD ["node","src/server.js"]
 
+# We run our service on port 8080
 EXPOSE 8080
 
-HEALTHCHECK --interval=10s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl --fail localhost:8080 || exit 1
-
+# Healthcheck
+HEALTHCHECK --interval=3m CMD curl --fail http://localhost:${PORT}/ || exit 1
