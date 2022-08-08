@@ -110,3 +110,4 @@ coverage/
 .ssh/
 
 ccp.ppk
+docker.env
