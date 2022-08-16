@@ -1,36 +1,47 @@
-//tests/unit/delete.test.js
-
 const request = require('supertest');
+
 const app = require('../../src/app');
 
-describe('DELETE /v1/fragments/:id', () => {
+describe('DELETE /v1/fragments', () => {
   test('unauthenticated requests are denied', () =>
-    request(app).delete(`/v1/fragments/1234`).expect(401));
+    request(app).delete('/v1/fragments/randomid').expect(401));
+
   test('incorrect credentials are denied', () =>
     request(app)
-      .post(`/v1/fragments/1234`)
+      .delete('/v1/fragments/randomid')
       .auth('invalid@email.com', 'incorrect_password')
       .expect(401));
 
-  test('authenticated users can delete fragment', async () => {
-    const postRes = await request(app)
-      .post('/v1/fragments')
-      .auth('user1@email.com', 'password1')
-      .send({
-        body: 'Test123',
-      });
-
-    const id = await postRes.body.fragment.id;
-
-    const deleteRes = await request(app)
-      .delete(`/v1/fragments/${id}`)
+  test('return 404 if id cannot be found', async () => {
+    const deleted = await request(app)
+      .delete('/v1/fragments/randomid')
       .auth('user1@email.com', 'password1');
-    expect(deleteRes.statusCode).toBe(200);
-    expect(deleteRes.body.status).toBe('ok');
+
+    expect(deleted.statusCode).toBe(404);
   });
 
-  test('give error for non existent fragment', async () => {
-    const res = await request(app).delete(`/v1/fragments/999`).auth('user1@email.com', 'password1');
-    expect(res.statusCode).toBe(500);
+  test('successful delete = 200, cannot get deleted fragment (404)', async () => {
+    const postRes = await request(app)
+      .post('/v1/fragments')
+      .auth('user2@email.com', 'password2')
+      .set('Content-Type', 'text/plain')
+      .send('This is fragment');
+    const id = JSON.parse(postRes.text).fragment.id;
+
+    const deleted = await request(app)
+      .delete(`/v1/fragments/${id}`)
+      .auth('user2@email.com', 'password2');
+
+    expect(deleted.statusCode).toBe(200);
+
+    const getRes = await request(app)
+      .get(`/v1/fragments/${id}`)
+      .auth('user2@email.com', 'password2');
+
+    expect(getRes.statusCode).toBe(404);
+
+    const getAll = await request(app).get('/v1/fragments').auth('user2@email.com', 'password2');
+
+    expect(getAll.body.fragments).toEqual([]);
   });
 });

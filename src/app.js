@@ -1,21 +1,18 @@
-// src/app.js
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const passport = require('passport');
-const authorization = require('./authorization');
-
-const { createErrorResponse } = require('./response');
-// version and author from our package.json file
-//const { version, author } = require('../package.json');
 
 const logger = require('./logger');
 const pino = require('pino-http')({
   // Use our default logger instance, which is already configured
   logger,
 });
+
+const passport = require('passport');
+const authorization = require('./authorization');
+
+const { createErrorResponse } = require('./response');
 
 // Create an express app instance we can use to attach middleware and HTTP routes
 const app = express();
@@ -36,40 +33,25 @@ app.use(compression());
 passport.use(authorization.strategy());
 app.use(passport.initialize());
 
-// modifications to src/app.js
-
-// Remove `app.get('/', (req, res) => {...});` and replace with:
-
 // Define our routes
 app.use('/', require('./routes'));
 
-// Add 404 middleware to handle any requests for resources that can't be found can't be found
-app.use((req, res) => {
-  res.status(404).json({
-    status: 'error',
-    error: {
-      message: 'not found',
-      code: 404,
-    },
-  });
+// Add 404 middleware to handle any requests for resources that can't be found
+app.use((req, res, next) => {
+  next(createErrorResponse(404, 'not found'));
 });
 
 // Add error-handling middleware to deal with anything else
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  let status;
-  const message = err.message || 'unable to process request';
+  // We may already have an error response we can use, but if not, use a generic
+  // 500 server error and message
+  const status = err?.statusCode || err?.error?.code || 500;
+  const message = err?.message || err?.error?.message || 'unable to process request';
 
-  if (message == 'No matching fragment!') {
-    status = 404;
-  } else if (message == 'unsupported type!') {
-    status = 415;
-  } else {
-    status = err.status || 500;
-  }
-
+  // If this is a server error, log something so we can see what's going on
   if (status > 499) {
-    logger.error({ err }, `Error processing request`);
+    logger.error({ err }, 'Error processing request');
   }
 
   res.status(status).json(createErrorResponse(status, message));

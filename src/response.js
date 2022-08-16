@@ -1,5 +1,3 @@
-// src/response.js
-
 /**
  * A successful response looks like:
  *
@@ -16,6 +14,7 @@ module.exports.createSuccessResponse = function (data) {
     ...data,
   };
 };
+
 /**
  * An error response looks like:
  *
@@ -30,9 +29,9 @@ module.exports.createSuccessResponse = function (data) {
 module.exports.createErrorResponse = function (code, message) {
   return {
     status: 'error',
-    error: {
+    'error': {
       code: code,
       message: message,
-    },
-  };
+    }
+  }
 };

@@ -2,11 +2,13 @@
 const { randomUUID } = require('crypto');
 // Use https://www.npmjs.com/package/content-type to create/parse Content-Type headers
 const contentType = require('content-type');
-
-const logger = require('../logger');
+const md = require('markdown-it')({
+  html: true,
+});
+const sharp = require('sharp');
+var mime = require('mime-types');
 
 // Functions for working with fragment metadata/data using our DB
-
 const {
   readFragment,
   writeFragment,
@@ -16,54 +18,39 @@ const {
   deleteFragment,
 } = require('./data');
 
-const fragmentTypes = [
+const logger = require('../logger');
+
+const validTypes = [
   'text/plain',
-  'text/plain; charset=utf-8',
   'text/markdown',
   'text/html',
   'application/json',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
 ];
 
+// NOTE: we store the entire Content-Type (i.e., with the charset if present),
+// but also allow using only the media type (e.g., text/html vs. text/html; charset=iso-8859-1).
+
 class Fragment {
-  constructor({ id, ownerId, created, updated, type, size = 0 }) {
-    if (!ownerId) {
-      throw new Error('ownerID cannot be empty!');
+  constructor({ id, ownerId, type, created = undefined, updated = undefined, size = 0 }) {
+    if (!ownerId || !type) {
+      throw new Error('owner id and type is required');
+    } else if (typeof size !== 'number') {
+      throw new Error('size must be a number');
+    } else if (size < 0) {
+      throw new Error('size cannot be negative');
+    } else if (!Fragment.isSupportedType(type)) {
+      throw new Error('invalid type');
     } else {
+      this.id = id || randomUUID();
       this.ownerId = ownerId;
-    }
-
-    if (!Fragment.isSupportedType(type)) {
-      throw new Error('unsupported type!');
-    } else {
+      this.created = created || new Date().toISOString();
+      this.updated = updated || new Date().toISOString();
       this.type = type;
-    }
-
-    if (size < 0) {
-      throw new Error('size cannot be negative!');
-    } else {
-      if (typeof size !== 'number') {
-        throw new Error('size must be a number!');
-      } else {
-        this.size = size;
-      }
-    }
-
-    if (id) {
-      this.id = id;
-    } else {
-      this.id = randomUUID();
-    }
-
-    if (created) {
-      this.created = created;
-    } else {
-      this.created = new Date().toISOString();
-    }
-
-    if (updated) {
-      this.updated = updated;
-    } else {
-      this.updated = new Date().toISOString();
+      this.size = size;
     }
   }
 
@@ -74,9 +61,12 @@ class Fragment {
    * @returns Promise<Array<Fragment>>
    */
   static async byUser(ownerId, expand = false) {
-    logger.debug({ ownerId, expand }, 'byUser()');
-
-    return listFragments(ownerId, expand);
+    try {
+      return await listFragments(ownerId, expand);
+    } catch (err) {
+      logger.error({ err }, 'Error getting all fragments');
+      throw new Error('Error getting all fragments');
+    }
   }
 
   /**
@@ -86,12 +76,18 @@ class Fragment {
    * @returns Promise<Fragment>
    */
   static async byId(ownerId, id) {
-    const res = await readFragment(ownerId, id);
-    if (res) {
-      return res;
-    } else {
-      logger.error({}, 'could not find fragment');
-      throw new Error('No matching fragment!');
+    try {
+      const fragment = await readFragment(ownerId, id);
+      if (fragment) {
+        if (fragment instanceof Fragment === false) {
+          return new Fragment(fragment);
+        } else {
+          return fragment;
+        }
+      }
+    } catch (err) {
+      logger.warn({ err }, 'error reading fragment data');
+      throw new Error('unable to read fragment data');
     }
   }
 
@@ -101,11 +97,12 @@ class Fragment {
    * @param {string} id fragment's id
    * @returns Promise
    */
-  static delete(ownerId, id) {
+  static async delete(ownerId, id) {
     try {
-      return deleteFragment(ownerId, id);
+      return await deleteFragment(ownerId, id);
     } catch (err) {
-      throw new Error(err);
+      logger.error({ err }, 'Unable to delete fragment object');
+      throw new Error('Unable to delete fragment object');
     }
   }
 
@@ -113,9 +110,14 @@ class Fragment {
    * Saves the current fragment to the database
    * @returns Promise
    */
-  save() {
-    this.updated = new Date().toISOString();
-    return writeFragment(this);
+  async save() {
+    try {
+      this.updated = new Date().toISOString();
+      return await writeFragment(this);
+    } catch (err) {
+      logger.warn({ err }, 'Error to save fragment');
+      throw new Error('unable to save fragment');
+    }
   }
 
   /**
@@ -123,7 +125,12 @@ class Fragment {
    * @returns Promise<Buffer>
    */
   async getData() {
-    return readFragmentData(this.ownerId, this.id);
+    try {
+      return await readFragmentData(this.ownerId, this.id);
+    } catch (err) {
+      logger.warn({ err }, 'Error to read fragment data');
+      throw new Error('unable to read fragment data');
+    }
   }
 
   /**
@@ -132,21 +139,17 @@ class Fragment {
    * @returns Promise
    */
   async setData(data) {
-    try {
-      if (!data) {
-        throw Error('No data found');
-      }
-
-      if (!Buffer.isBuffer(data)) {
-        throw Error('No buffer found');
-      }
-
+    if (!Buffer.isBuffer(data)) {
+      throw new Error('data is not a Buffer');
+    } else {
       this.size = Buffer.byteLength(data);
-      this.updated = new Date().toISOString();
-
-      return await writeFragmentData(this.ownerId, this.id, data);
-    } catch (err) {
-      throw new Error(err);
+      this.save();
+      try {
+        return await writeFragmentData(this.ownerId, this.id, data);
+      } catch (err) {
+        logger.error({ err }, 'Error setting fragment data');
+        throw new Error('unable to set fragment data');
+      }
     }
   }
 
@@ -155,7 +158,6 @@ class Fragment {
    * "text/html; charset=utf-8" -> "text/html"
    * @returns {string} fragment's mime type (without encoding)
    */
-
   get mimeType() {
     const { type } = contentType.parse(this.type);
     return type;
@@ -166,7 +168,11 @@ class Fragment {
    * @returns {boolean} true if fragment's type is text/*
    */
   get isText() {
-    return this.mimeType.includes('text');
+    if (this.mimeType.match(/text\/+/)) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   /**
@@ -174,11 +180,17 @@ class Fragment {
    * @returns {Array<string>} list of supported mime types
    */
   get formats() {
-    if (this.type === fragmentTypes[0] || fragmentTypes[1]) {
+    if (this.mimeType === 'text/plain') {
       return ['text/plain'];
-    } else if (this.type === fragmentTypes[2]) {
-      return ['text/html'];
-    } else return [];
+    } else if (this.mimeType === 'text/markdown') {
+      return ['text/plain', 'text/markdown', 'text/html'];
+    } else if (this.mimeType === 'text/html') {
+      return ['text/plain', 'text/html'];
+    } else if (this.mimeType === 'application/json') {
+      return ['text/plain', 'application/json'];
+    } else {
+      return ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    }
   }
 
   /**
@@ -187,7 +199,45 @@ class Fragment {
    * @returns {boolean} true if we support this Content-Type (i.e., type/subtype)
    */
   static isSupportedType(value) {
-    return fragmentTypes.includes(value);
+    return validTypes.some((element) => value.includes(element));
+  }
+
+  /**
+   * Returns the data converted to the desired type
+   * @param {Buffer} data fragment data to be converted
+   * @param {string} extension the type extension you want to convert to (desired type)
+   * @returns {Buffer} converted fragment data
+   */
+  async convertType(data, extension) {
+    let newType = mime.lookup(extension);
+    const convertableFormats = this.formats;
+
+    logger.debug('type: ' + this.type);
+    logger.debug('mimeType: ' + this.mimeType);
+    logger.debug('convertable formats: ' + convertableFormats);
+
+    if (!convertableFormats.includes(newType)) {
+      logger.warn('Cannot convert fragment to this type');
+      // throw new Error('Cannot convert fragment to this type');
+      return false;
+    }
+
+    let res = data;
+    if (this.mimeType !== newType) {
+      if (this.mimeType === 'text/markdown' && newType === 'text/html') {
+        res = md.render(data.toString());
+        res = Buffer.from(res);
+      } else if (newType === 'image/jpeg') {
+        res = await sharp(data).jpeg().toBuffer();
+      } else if (newType === 'image/png') {
+        res = await sharp(data).png().toBuffer();
+      } else if (newType === 'image/webp') {
+        res = await sharp(data).webp().toBuffer();
+      } else if (newType === 'image/gif') {
+        res = await sharp(data).gif().toBuffer();
+      }
+    }
+    return { res, convertedType: newType };
   }
 }
 

@@ -1,21 +1,18 @@
 const { Fragment } = require('../../src/model/fragment');
 
 // Wait for a certain number of ms. Returns a Promise.
-const wait = async (ms = 10) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = async (ms = 1000) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Currently, only text/* and application/json type are supported. Others will be added later.
 const validTypes = [
-  `text/plain`,
-  /*
-   Currently, only text/plain is supported. Others will be added later.
-
-  `text/markdown`,
-  `text/html`,
-  `application/json`,
-  `image/png`,
-  `image/jpeg`,
-  `image/webp`,
-  `image/gif`,
-  */
+  'text/plain',
+  'text/markdown',
+  'text/html',
+  'application/json',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
 ];
 
 describe('Fragment class', () => {
@@ -146,7 +143,6 @@ describe('Fragment class', () => {
     });
 
     test('isText return expected results', () => {
-      // Text fragment
       const fragment = new Fragment({
         ownerId: '1234',
         type: 'text/plain; charset=utf-8',
@@ -242,13 +238,13 @@ describe('Fragment class', () => {
       expect(size).toBe(2);
     });
 
-    test('a fragment can be deleted', async () => {
+    test('fragment can be deleted', async () => {
       const fragment = new Fragment({ ownerId: '1234', type: 'text/plain', size: 0 });
       await fragment.save();
       await fragment.setData(Buffer.from('a'));
 
       await Fragment.delete('1234', fragment.id);
-      expect(async () => await Fragment.byId('1234', fragment.id)).rejects.toThrow();
+      expect(await Fragment.byId('1234', fragment.id)).toBeUndefined();
     });
   });
 });

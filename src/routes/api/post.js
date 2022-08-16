@@ -1,32 +1,30 @@
-const logger = require('../../logger');
+const { createSuccessResponse, createErrorResponse } = require('../../response');
 const { Fragment } = require('../../model/fragment');
-const { createSuccessResponse } = require('../../response');
+const logger = require('../../logger');
 
-module.exports = async (req, res, next) => {
-  const data = req.body;
-  const user = req.user;
-  const type = req.headers['content-type'];
+module.exports = async (req, res) => {
+  logger.debug({ body: req.body }, 'POST /fragments');
 
-  logger.debug({ user, type }, 'POST /fragments');
+  if (!Buffer.isBuffer(req.body)) {
+    return res.status(415).json(createErrorResponse(415, 'Unsupported Media Type'));
+  }
 
   try {
-    if (!Fragment.isSupportedType(type)) {
-      throw new Error('Invalid type');
-    }
-
-    const size = Buffer.byteLength(data);
-    const fragment = new Fragment({ ownerId: user, type: type, size: size });
+    const fragment = new Fragment({ ownerId: req.user, type: req.get('Content-Type') });
     await fragment.save();
-    await fragment.setData(data);
-    const id = fragment.id;
-    logger.debug(id, 'Post /fragments');
+    await fragment.setData(req.body);
 
-    const location = `${process.env.API_URL}/v1/fragments/${id}`;
+    logger.debug({ fragment }, 'Fragment posted');
 
-    res.location(location);
-    logger.debug({ location }, 'Location');
-    res.status(201).json(createSuccessResponse({ fragment }));
-  } catch (err) {
-    next(err);
+    res.set('Content-Type', fragment.type);
+    res.set('Location', `${process.env.API_URL}/v1/fragments/${fragment.id}`);
+    res.status(201).json(
+      createSuccessResponse({
+        fragment: fragment,
+      })
+    );
+  } catch (e) {
+    logger.warn(e.message, 'Cannot post fragment');
+    res.status(500).json(createErrorResponse(500, e.message));
   }
 };

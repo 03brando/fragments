@@ -3,19 +3,22 @@ const { Fragment } = require('../../model/fragment');
 const { createSuccessResponse, createErrorResponse } = require('../../response');
 
 module.exports = async (req, res) => {
-  logger.debug('req.query in get: ' + JSON.stringify(req.query));
+  logger.debug(`owner id and id: ${req.user}, ${req.params.id}`);
 
-  const expand = req.query.expand === '1';
-  // await'ed call needs to have the error case handled so your server doesn't crash
   try {
-    const fragments = await Fragment.byUser(req.user, expand);
+    const fragment = await Fragment.byId(req.user, req.params.id);
+
+    if (!fragment) {
+      return res.status(404).json(createErrorResponse(404, 'No fragment with this id'));
+    }
 
     res.status(200).json(
       createSuccessResponse({
-        fragments: fragments,
+        fragment: fragment,
       })
     );
   } catch (e) {
+    logger.warn(e.message, 'Cannot get fragment');
     res.status(500).json(createErrorResponse(500, e.message));
   }
 };

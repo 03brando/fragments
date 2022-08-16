@@ -1,18 +1,24 @@
 const { Fragment } = require('../../model/fragment');
-const { createSuccessResponse } = require('../../response');
+const { createSuccessResponse, createErrorResponse } = require('../../response');
 const logger = require('../../logger');
 
-module.exports = async (req, res, next) => {
-  const user = req.user;
-  const id = req.params.id;
+module.exports = async (req, res) => {
+  logger.debug(`owner id and id: ${req.user}, ${req.params.id}`);
 
+  const id = req.params.id.split('.')[0];
   try {
-    await Fragment.delete(user, id);
+    const fragment = await Fragment.byId(req.user, id);
 
-    logger.debug(id, 'deleted fragment');
+    // If the id is not found, returns an HTTP 404 with an appropriate error message.
+    if (!fragment) {
+      return res.status(404).json(createErrorResponse(404, 'Id not found'));
+    }
 
+    await Fragment.delete(req.user, id);
+
+    // Once the fragment is deleted, an HTTP 200 is returned, along with the ok status:
     res.status(200).json(createSuccessResponse());
-  } catch (err) {
-    next(err);
+  } catch (e) {
+    res.status(500).json(createErrorResponse(500, e.message));
   }
 };
